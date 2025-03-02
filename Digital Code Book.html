@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Randomized Codebook Encoder/Decoder with Seed</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background-color: #333;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        textarea {
+            width: 100%;
+            padding: 10px;
+            background-color: #222;
+            color: #e0e0e0;
+            border: 1px solid #444;
+            box-sizing: border-box; /* Ensures padding and borders are included in width calculation */
+        }
+        button {
+            background-color: #555;
+            color: #fff;
+            padding: 10px;
+            margin-top: 10px;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #777;
+        }
+        .output {
+            margin-top: 20px;
+            background-color: #222;
+            padding: 10px;
+            border-radius: 5px;
+            word-wrap: break-word;
+        }
+        .button-container {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+        .button-container button {
+            width: 45%;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Randomized Codebook Encoder/Decoder with Seed</h1>
+        
+        <h2>Enter a Seed (optional, for fixed codebook):</h2>
+        <textarea id="seedText" rows="1" placeholder="Enter seed here..."></textarea><br>
+
+        <h2>Encoder</h2>
+        <textarea id="plainText" rows="4" placeholder="Enter your message here..."></textarea><br>
+        <button onclick="encodeMessage()">Encode Message</button>
+
+        <h2>Encoded Message:</h2>
+        <div id="encodedMessage" class="output"></div>
+        <div class="button-container">
+            <button onclick="copyToClipboard()">Copy Encoded Message</button>
+        </div>
+
+        <hr>
+
+        <h2>Decoder</h2>
+        <textarea id="encodedText" rows="4" placeholder="Enter the encoded message here..."></textarea><br>
+        <div class="button-container">
+            <button onclick="pasteFromClipboard()">Paste Encoded Message</button>
+            <button onclick="decodeMessage()">Decode Message</button>
+        </div>
+
+        <h2>Decoded Message:</h2>
+        <div id="decodedMessage" class="output"></div>
+    </div>
+
+    <script>
+        // Function to generate a random code for each letter, based on a seed
+        function generateRandomCode(seed, letter) {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_-+=';
+            let result = '';
+            let seedValue = (letter.charCodeAt(0) + seed.length) % chars.length;
+            
+            // Generate a random-like pattern using seed and the letter's ASCII code
+            for (let i = 0; i < 6; i++) {  // Code of length 6
+                seedValue = (seedValue * 31 + letter.charCodeAt(0)) % chars.length;
+                result += chars.charAt(seedValue);
+            }
+
+            return result;
+        }
+
+        // Create a deterministic but randomized codebook based on the seed
+        function generateCodebook(seed) {
+            const codebook = {};
+            const reverseCodebook = {};
+            const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'.split(''); 
+
+            // Generate codes for each letter based on the seed
+            letters.forEach(letter => {
+                const code = generateRandomCode(seed, letter);
+                codebook[letter] = code;
+                reverseCodebook[code] = letter;
+            });
+
+            return { codebook, reverseCodebook };
+        }
+
+        // Get the seed value (if provided) or default to a fixed seed
+        let seedValue = document.getElementById('seedText').value.trim() || 'DefaultSeed123';
+
+        // Generate the codebook using the seed
+        let { codebook, reverseCodebook } = generateCodebook(seedValue);
+
+        // Function to encode a message
+        function encodeMessage() {
+            const plainText = document.getElementById('plainText').value.trim();
+            let encodedMessage = '';
+            
+            // Iterate through each character in the message
+            for (let char of plainText) {
+                if (char === ' ') {
+                    encodedMessage += 'SPACE ';  // Handle spaces separately
+                } else if (codebook[char]) {
+                    encodedMessage += codebook[char] + ' ';
+                } else {
+                    encodedMessage += char + ' ';  // Keep non-alphabet characters as they are
+                }
+            }
+
+            // Display the encoded message
+            document.getElementById('encodedMessage').innerText = encodedMessage.trim();
+        }
+
+        // Function to decode a message
+        function decodeMessage() {
+            const encodedText = document.getElementById('encodedText').value.trim();
+            const encodedArray = encodedText.split(' ');
+            let decodedMessage = '';
+
+            // Iterate through each encoded block and map it to the original letter
+            encodedArray.forEach(block => {
+                if (block === 'SPACE') {
+                    decodedMessage += ' ';  // Replace 'SPACE' with a real space character
+                } else if (reverseCodebook[block]) {
+                    decodedMessage += reverseCodebook[block];
+                } else {
+                    decodedMessage += block;  // Keep non-encoded characters as they are
+                }
+            });
+
+            // Display the decoded message
+            document.getElementById('decodedMessage').innerText = decodedMessage.trim();
+        }
+
+        // Function to copy the encoded message to clipboard
+        function copyToClipboard() {
+            const encodedMessage = document.getElementById('encodedMessage').innerText;
+            navigator.clipboard.writeText(encodedMessage).then(function() {
+                alert("Encoded message copied to clipboard!");
+            }).catch(function(error) {
+                console.error("Error copying text to clipboard: ", error);
+            });
+        }
+
+        // Function to paste encoded message from clipboard into the decoder
+        function pasteFromClipboard() {
+            navigator.clipboard.readText().then(function(text) {
+                document.getElementById('encodedText').value = text;
+            }).catch(function(error) {
+                console.error("Error pasting text from clipboard: ", error);
+            });
+        }
+
+        // Listen for the seed input to update the codebook
+        document.getElementById('seedText').addEventListener('input', function () {
+            seedValue = this.value.trim() || 'DefaultSeed123';
+            ({ codebook, reverseCodebook } = generateCodebook(seedValue));
+        });
+
+        // To show the codebook (for debugging purposes, this is optional)
+        console.log("Codebook:", codebook);
+        console.log("Reverse Codebook:", reverseCodebook);
+    </script>
+
+</body>
+</html>
